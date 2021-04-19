@@ -104,7 +104,7 @@ abstract class ExtensionValue {
           break;
       }
     }
-    throw UnimplementedError('Cannot handle $id (${id.parent} ${id.nodes.last})');
+    return RawExtension.fromObject(obj, id);
   }
 }
 
@@ -554,9 +554,9 @@ class AccessDescription {
   }
 }
 
+/// The extension holding the signed certificate timestamps for the certificate
 class SignedCertificateTimestamps extends ExtensionValue {
-
-  final List<SignedCertificateTimestamp> scts;
+  final List<SignedCertificateTimestamp> signedCertificateTimestamps;
 
   factory SignedCertificateTimestamps.fromAsn1(ASN1OctetString octetString) {
     final list = <SignedCertificateTimestamp>[];
@@ -573,9 +573,19 @@ class SignedCertificateTimestamps extends ExtensionValue {
     return SignedCertificateTimestamps(list);
   }
 
-  SignedCertificateTimestamps(this.scts);
+  SignedCertificateTimestamps(this.signedCertificateTimestamps);
+
+  @override
+  String toString([String prefix = '']) {
+    final buffer = StringBuffer();
+    buffer.writeln('${prefix}CTS: ');
+
+    signedCertificateTimestamps.forEach((element) => buffer.writeln(element.toString('$prefix\t')));
+    return buffer.toString();
+  }
 }
 
+/// Certificate timestamp with its signature
 class SignedCertificateTimestamp {
   static const V1 = 0;
   static const KEY_ID_LENGTH = 32;
@@ -608,11 +618,20 @@ class SignedCertificateTimestamp {
   SignedCertificateTimestamp(this.version, this.keyId, this.timestamp, this.extensions, this.signature);
 
   @override
-  String toString() {
-    return 'SignedCertificateTimestamp{version: $version, keyId: ${base64Encode(keyId)}, timestamp: $timestamp, extensions: ${base64Encode(extensions)}, signature: $signature}';
+  String toString([String prefix = '']) {
+    final buffer = StringBuffer();
+    buffer.writeln('${prefix}Entry:');
+    buffer.writeln('$prefix\tVersion: $version');
+    buffer.writeln('$prefix\tKeyId: ${base64Encode(keyId)}');
+    buffer.writeln('$prefix\tTime stamp: $timestamp');
+    buffer.writeln('$prefix\tExtensions: ${base64Encode(extensions)}');
+    buffer.writeln('$prefix\tSignature:');
+    buffer.writeln(signature.toString('$prefix\t\t'));
+    return buffer.toString();
   }
 }
 
+/// Hash algorithm used to determine signature hash for [SignedCertificateTimestamp]
 enum HashAlgorithm {
   NONE,
   MD5,
@@ -623,6 +642,7 @@ enum HashAlgorithm {
   SHA512,
 }
 
+/// Signature algorithm, used to create [SignedCertificateTimestamp] signature
 enum SignatureAlgorithm {
   ANONYMOUS,
   RSA,
@@ -630,6 +650,7 @@ enum SignatureAlgorithm {
   ECDSA,
 }
 
+/// Certificate signature information
 class DigitallySigned {
   final HashAlgorithm hashAlgorithm;
   final SignatureAlgorithm signatureAlgorithm;
@@ -692,9 +713,27 @@ class DigitallySigned {
   DigitallySigned(this.hashAlgorithm, this.signatureAlgorithm, this.signature);
 
   @override
-  String toString() {
-    return 'DigitallySigned{hashAlgorithm: $hashAlgorithm, signatureAlgorithm: $signatureAlgorithm, signature: ${base64Encode(signature)}}';
+  String toString([String prefix = '']) {
+    final buffer = StringBuffer();
+
+    buffer.writeln('${prefix}Hash algorithm: $hashAlgorithm');
+    buffer.writeln('${prefix}Signature algorithm: $signatureAlgorithm');
+    buffer.writeln('${prefix}Signature: ${base64Encode(signature)}');
+
+    return buffer.toString();
   }
+}
+
+/// A raw extension that is not specifically handled by the parser
+class RawExtension extends ExtensionValue {
+  final ObjectIdentifier id;
+  final ASN1Object rawObject;
+
+  factory RawExtension.fromObject(ASN1Object object, ObjectIdentifier id) {
+    return RawExtension(id, object);
+  }
+
+  RawExtension(this.id, this.rawObject);
 }
 
 class GeneralName {

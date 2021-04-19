@@ -65,8 +65,7 @@ class ObjectIdentifier {
       if (tree is Map) return tree[null];
       return tree;
     } catch (e) {
-      throw StateError(
-          'Unable to get name of ObjectIdentifier with nodes $nodes');
+      return nodes.join('.');
     }
   }
 
