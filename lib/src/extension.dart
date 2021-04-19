@@ -17,8 +17,7 @@ class Extension {
   /// The extension's value.
   final ExtensionValue extnValue;
 
-  const Extension(
-      {required this.extnId, this.isCritical = false, required this.extnValue});
+  const Extension({required this.extnId, this.isCritical = false, required this.extnValue});
 
   /// Creates a Extension from an [ASN1Sequence].
   ///
@@ -41,12 +40,7 @@ class Extension {
       octetIndex = 2;
     }
     return Extension(
-        extnId: id,
-        isCritical: critical,
-        extnValue: ExtensionValue.fromAsn1(
-            ASN1Parser(sequence.elements[octetIndex].contentBytes()!)
-                .nextObject(),
-            id));
+        extnId: id, isCritical: critical, extnValue: ExtensionValue.fromAsn1(ASN1Parser(sequence.elements[octetIndex].contentBytes()!).nextObject(), id));
   }
 
   @override
@@ -62,6 +56,7 @@ class Extension {
 abstract class ExtensionValue {
   static const ceId = ObjectIdentifier([2, 5, 29]);
   static const peId = ObjectIdentifier([1, 3, 6, 1, 5, 5, 7, 1]);
+  static const ctId = ObjectIdentifier([1, 3, 6, 1, 4, 1, 11129, 2, 4]);
 
   const ExtensionValue();
 
@@ -94,15 +89,22 @@ abstract class ExtensionValue {
         case 37:
           return ExtendedKeyUsage.fromAsn1(obj as ASN1Sequence);
       }
-    }
-    if (id.parent == peId) {
+    } else if (id.parent == peId) {
       switch (id.nodes.last) {
         case 1:
           return AuthorityInformationAccess.fromAsn1(obj as ASN1Sequence);
       }
+    } else if (id.parent == ctId) {
+      switch (id.nodes.last) {
+        case 2:
+          return SignedCertificateTimestamps.fromAsn1(obj as ASN1OctetString);
+        case 3:
+          break;
+        case 4:
+          break;
+      }
     }
-    throw UnimplementedError(
-        'Cannot handle $id (${id.parent} ${id.nodes.last})');
+    throw UnimplementedError('Cannot handle $id (${id.parent} ${id.nodes.last})');
   }
 }
 
@@ -115,8 +117,7 @@ class AuthorityKeyIdentifier extends ExtensionValue {
   final authorityCertIssuer;
   final BigInt? authorityCertSerialNumber;
 
-  AuthorityKeyIdentifier(this.keyIdentifier, this.authorityCertIssuer,
-      this.authorityCertSerialNumber);
+  AuthorityKeyIdentifier(this.keyIdentifier, this.authorityCertIssuer, this.authorityCertSerialNumber);
 
   /// Creates an authority key identifier extension value from an [ASN1Sequence].
   ///
@@ -139,9 +140,7 @@ class AuthorityKeyIdentifier extends ExtensionValue {
           issuer = o;
           break;
         case 2:
-          number =
-              (ASN1Parser(o.encodedBytes..[0] = 2).nextObject() as ASN1Integer)
-                  .valueAsBigInteger;
+          number = (ASN1Parser(o.encodedBytes..[0] = 2).nextObject() as ASN1Integer).valueAsBigInteger;
       }
     }
     return AuthorityKeyIdentifier(keyId, issuer, number);
@@ -247,12 +246,7 @@ class KeyUsage extends ExtensionValue {
   ///     encipherOnly            (7),
   ///     decipherOnly            (8) }
   factory KeyUsage.fromAsn1(ASN1BitString bitString) {
-    var bits = bitString.stringValue
-        .map((v) => (v + 256).toRadixString(2).substring(1))
-        .join()
-        .split('')
-        .map((v) => v == '1')
-        .toList();
+    var bits = bitString.stringValue.map((v) => (v + 256).toRadixString(2).substring(1)).join().split('').map((v) => v == '1').toList();
     bits = bits.take(bits.length - bitString.unusedbits).toList();
     bits.addAll(Iterable.generate(9, (_) => false));
     bits = bits.take(9).toList();
@@ -342,15 +336,11 @@ class CertificatePolicies extends ExtensionValue {
   ///
   ///   CertificatePolicies ::= SEQUENCE SIZE (1..MAX) OF PolicyInformation
   factory CertificatePolicies.fromAsn1(ASN1Sequence sequence) {
-    return CertificatePolicies(policies: [
-      for (var e in sequence.elements)
-        PolicyInformation.fromAsn1(e as ASN1Sequence)
-    ]);
+    return CertificatePolicies(policies: [for (var e in sequence.elements) PolicyInformation.fromAsn1(e as ASN1Sequence)]);
   }
 
   @override
-  String toString([String prefix = '']) =>
-      policies.map((p) => p.toString(prefix)).join('\n');
+  String toString([String prefix = '']) => policies.map((p) => p.toString(prefix)).join('\n');
 }
 
 class PolicyInformation {
@@ -358,8 +348,7 @@ class PolicyInformation {
 
   final List<PolicyQualifierInfo> policyQualifiers;
 
-  PolicyInformation(
-      {required this.policyIdentifier, this.policyQualifiers = const []});
+  PolicyInformation({required this.policyIdentifier, this.policyQualifiers = const []});
 
   /// The ASN.1 definition is:
   ///
@@ -370,20 +359,16 @@ class PolicyInformation {
     var policyIdentifier = toDart(sequence.elements[0]);
     var policyQualifiers = <PolicyQualifierInfo>[];
     if (sequence.elements.length > 1) {
-      policyQualifiers.addAll((sequence.elements[1] as ASN1Sequence)
-          .elements
-          .map((e) => PolicyQualifierInfo.fromAsn1(e as ASN1Sequence)));
+      policyQualifiers.addAll((sequence.elements[1] as ASN1Sequence).elements.map((e) => PolicyQualifierInfo.fromAsn1(e as ASN1Sequence)));
     }
-    return PolicyInformation(
-        policyIdentifier: policyIdentifier, policyQualifiers: policyQualifiers);
+    return PolicyInformation(policyIdentifier: policyIdentifier, policyQualifiers: policyQualifiers);
   }
 
   @override
   String toString([String prefix = '']) {
     var buffer = StringBuffer();
     buffer.writeln('${prefix}Policy: $policyIdentifier');
-    buffer.writeln(
-        policyQualifiers.map((q) => q.toString('${prefix}\t')).join('\n'));
+    buffer.writeln(policyQualifiers.map((q) => q.toString('${prefix}\t')).join('\n'));
     return buffer.toString();
   }
 }
@@ -395,9 +380,7 @@ class PolicyQualifierInfo {
 
   final UserNotice? userNotice;
 
-  PolicyQualifierInfo(
-      {required this.policyQualifierId, this.cpsUri, this.userNotice})
-      : assert(cpsUri != null || userNotice != null);
+  PolicyQualifierInfo({required this.policyQualifierId, this.cpsUri, this.userNotice}) : assert(cpsUri != null || userNotice != null);
 
   /// The ASN.1 definition is:
   ///
@@ -410,16 +393,11 @@ class PolicyQualifierInfo {
     switch (policyQualifierId.nodes.last) {
       case 1: // cps
         var cpsUri = toDart(sequence.elements[1]);
-        return PolicyQualifierInfo(
-            policyQualifierId: policyQualifierId, cpsUri: cpsUri);
+        return PolicyQualifierInfo(policyQualifierId: policyQualifierId, cpsUri: cpsUri);
       case 2: // unotice
-        return PolicyQualifierInfo(
-            policyQualifierId: policyQualifierId,
-            userNotice:
-                UserNotice.fromAsn1(sequence.elements[1] as ASN1Sequence));
+        return PolicyQualifierInfo(policyQualifierId: policyQualifierId, userNotice: UserNotice.fromAsn1(sequence.elements[1] as ASN1Sequence));
     }
-    throw UnsupportedError(
-        'Policy qualifier id $policyQualifierId not supported');
+    throw UnsupportedError('Policy qualifier id $policyQualifierId not supported');
   }
 
   @override
@@ -431,8 +409,7 @@ class PolicyQualifierInfo {
         return '${prefix}User Notice:\n'
             '${userNotice?.toString('${prefix}\t')}';
     }
-    throw UnsupportedError(
-        'Policy qualifier id $policyQualifierId not supported');
+    throw UnsupportedError('Policy qualifier id $policyQualifierId not supported');
   }
 }
 
@@ -485,9 +462,7 @@ class NoticeReference {
   ///     organization     DisplayText,
   ///     noticeNumbers    SEQUENCE OF INTEGER }
   factory NoticeReference.fromAsn1(ASN1Sequence sequence) {
-    return NoticeReference(
-        organization: toDart(sequence.elements[0]),
-        noticeNumbers: toDart(sequence.elements[1]));
+    return NoticeReference(organization: toDart(sequence.elements[0]), noticeNumbers: toDart(sequence.elements[1]));
   }
 
   @override
@@ -498,16 +473,14 @@ class NoticeReference {
 /// obtained.
 class CrlDistributionPoints extends ExtensionValue {
   final List<DistributionPoint> points;
+
   CrlDistributionPoints({required this.points});
 
   /// The ASN.1 definition is:
   ///
   ///   CRLDistributionPoints ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
   factory CrlDistributionPoints.fromAsn1(ASN1Sequence sequence) {
-    return CrlDistributionPoints(points: [
-      for (var e in sequence.elements)
-        DistributionPoint.fromAsn1(e as ASN1Sequence)
-    ]);
+    return CrlDistributionPoints(points: [for (var e in sequence.elements) DistributionPoint.fromAsn1(e as ASN1Sequence)]);
   }
 }
 
@@ -526,17 +499,11 @@ class DistributionPoint {
   ///     cRLIssuer               [2]     GeneralNames OPTIONAL }
   factory DistributionPoint.fromAsn1(ASN1Sequence sequence) {
     var name = sequence.elements.isEmpty ? null : toDart(sequence.elements[0]);
-    var reasons = sequence.elements.length <= 1
-        ? null
-        : (sequence.elements[1] as ASN1BitString)
-            .valueBytes()
-            .map((v) => DistributionPointReason.values[v])
-            .toList();
+    var reasons =
+        sequence.elements.length <= 1 ? null : (sequence.elements[1] as ASN1BitString).valueBytes().map((v) => DistributionPointReason.values[v]).toList();
 
-    var crlIssuer =
-        sequence.elements.length <= 2 ? null : toDart(sequence.elements[2]);
-    return DistributionPoint(
-        name: name, reasons: reasons, crlIssuer: crlIssuer);
+    var crlIssuer = sequence.elements.length <= 2 ? null : toDart(sequence.elements[2]);
+    return DistributionPoint(name: name, reasons: reasons, crlIssuer: crlIssuer);
   }
 }
 
@@ -568,10 +535,7 @@ class AuthorityInformationAccess extends ExtensionValue {
   ///   AuthorityInfoAccessSyntax  ::=
   ///     SEQUENCE SIZE (1..MAX) OF AccessDescription
   factory AuthorityInformationAccess.fromAsn1(ASN1Sequence sequence) {
-    return AuthorityInformationAccess(descriptions: [
-      for (var e in sequence.elements)
-        AccessDescription.fromAsn1(e as ASN1Sequence)
-    ]);
+    return AuthorityInformationAccess(descriptions: [for (var e in sequence.elements) AccessDescription.fromAsn1(e as ASN1Sequence)]);
   }
 }
 
@@ -586,9 +550,150 @@ class AccessDescription {
   ///     accessMethod          OBJECT IDENTIFIER,
   ///     accessLocation        GeneralName  }
   factory AccessDescription.fromAsn1(ASN1Sequence sequence) {
-    return AccessDescription(
-        accessMethod: toDart(sequence.elements[0]),
-        accessLocation: toDart(sequence.elements[1]));
+    return AccessDescription(accessMethod: toDart(sequence.elements[0]), accessLocation: toDart(sequence.elements[1]));
+  }
+}
+
+class SignedCertificateTimestamps extends ExtensionValue {
+
+  final List<SignedCertificateTimestamp> scts;
+
+  factory SignedCertificateTimestamps.fromAsn1(ASN1OctetString octetString) {
+    final list = <SignedCertificateTimestamp>[];
+    var offset = 2;
+    final buffer = octetString.octets.buffer;
+    final octets = buffer.asByteData(octetString.octets.offsetInBytes, octetString.octets.length);
+    while (offset + 2 < octets.lengthInBytes) {
+      final sctBytes = octets.getUint16(offset, Endian.big);
+      offset += 2;
+      final sublist = ByteData.view(octets.buffer, octets.offsetInBytes + offset, sctBytes);
+      list.add(SignedCertificateTimestamp.fromBuffer(sublist));
+      offset += sctBytes;
+    }
+    return SignedCertificateTimestamps(list);
+  }
+
+  SignedCertificateTimestamps(this.scts);
+}
+
+class SignedCertificateTimestamp {
+  static const V1 = 0;
+  static const KEY_ID_LENGTH = 32;
+  static const TIMESTAMP_LENGTH = 8;
+
+  final int version;
+  final Uint8List keyId;
+  final DateTime timestamp;
+  final Uint8List extensions;
+  final DigitallySigned signature;
+
+  factory SignedCertificateTimestamp.fromBuffer(ByteData byteData) {
+    var offset = 0;
+    final version = byteData.getUint8(offset++);
+    final keyId = byteData.buffer.asUint8List(offset, KEY_ID_LENGTH);
+    offset += KEY_ID_LENGTH;
+    final timestamp = byteData.getInt64(offset);
+    offset += TIMESTAMP_LENGTH;
+
+    final dataLength = byteData.getUint16(offset);
+    offset += 2;
+    final extensions = Uint8List.view(byteData.buffer, byteData.offsetInBytes + offset, dataLength);
+    offset += dataLength;
+
+    final signature = DigitallySigned.fromByteData(ByteData.view(byteData.buffer, byteData.offsetInBytes + offset));
+
+    return SignedCertificateTimestamp(version, keyId, DateTime.fromMillisecondsSinceEpoch(timestamp, isUtc: true), extensions, signature);
+  }
+
+  SignedCertificateTimestamp(this.version, this.keyId, this.timestamp, this.extensions, this.signature);
+
+  @override
+  String toString() {
+    return 'SignedCertificateTimestamp{version: $version, keyId: ${base64Encode(keyId)}, timestamp: $timestamp, extensions: ${base64Encode(extensions)}, signature: $signature}';
+  }
+}
+
+enum HashAlgorithm {
+  NONE,
+  MD5,
+  SHA1,
+  SHA224,
+  SHA256,
+  SHA384,
+  SHA512,
+}
+
+enum SignatureAlgorithm {
+  ANONYMOUS,
+  RSA,
+  DSA,
+  ECDSA,
+}
+
+class DigitallySigned {
+  final HashAlgorithm hashAlgorithm;
+  final SignatureAlgorithm signatureAlgorithm;
+  final Uint8List signature;
+
+  factory DigitallySigned.fromByteData(ByteData byteData) {
+    var offset = 0;
+    final hashAlgorithmByte = byteData.getUint8(offset++);
+    final signatureAlgorithmByte = byteData.getUint8(offset++);
+
+    final signatureLength = byteData.getUint16(offset);
+    offset += 2;
+    final signatureBytes = Uint8List.view(byteData.buffer, offset, signatureLength);
+    final HashAlgorithm hashAlgorithm;
+    switch (hashAlgorithmByte) {
+      case 0:
+        hashAlgorithm = HashAlgorithm.NONE;
+        break;
+      case 1:
+        hashAlgorithm = HashAlgorithm.MD5;
+        break;
+      case 2:
+        hashAlgorithm = HashAlgorithm.SHA1;
+        break;
+      case 3:
+        hashAlgorithm = HashAlgorithm.SHA224;
+        break;
+      case 4:
+        hashAlgorithm = HashAlgorithm.SHA256;
+        break;
+      case 5:
+        hashAlgorithm = HashAlgorithm.SHA384;
+        break;
+      case 6:
+        hashAlgorithm = HashAlgorithm.SHA512;
+        break;
+      default:
+        throw UnimplementedError('Unknown hash algorithm: $hashAlgorithmByte');
+    }
+    final SignatureAlgorithm signatureAlgorithm;
+    switch (signatureAlgorithmByte) {
+      case 0:
+        signatureAlgorithm = SignatureAlgorithm.ANONYMOUS;
+        break;
+      case 1:
+        signatureAlgorithm = SignatureAlgorithm.RSA;
+        break;
+      case 2:
+        signatureAlgorithm = SignatureAlgorithm.DSA;
+        break;
+      case 3:
+        signatureAlgorithm = SignatureAlgorithm.ECDSA;
+        break;
+      default:
+        throw UnimplementedError('Unknown signature algorithm: $signatureAlgorithmByte');
+    }
+    return DigitallySigned(hashAlgorithm, signatureAlgorithm, signatureBytes);
+  }
+
+  DigitallySigned(this.hashAlgorithm, this.signatureAlgorithm, this.signature);
+
+  @override
+  String toString() {
+    return 'DigitallySigned{hashAlgorithm: $hashAlgorithm, signatureAlgorithm: $signatureAlgorithm, signature: ${base64Encode(signature)}}';
   }
 }
 
@@ -597,10 +702,7 @@ class GeneralName {
   final int choice;
   final ASN1Object contents;
 
-  GeneralName(
-      {required this.isConstructed,
-      required this.choice,
-      required this.contents});
+  GeneralName({required this.isConstructed, required this.choice, required this.contents});
 
   /// The ASN.1 definition is:
   ///   GeneralName ::= CHOICE {
@@ -653,8 +755,7 @@ class GeneralName {
           contents = obj;
       }
     }
-    return GeneralName(
-        isConstructed: isConstructed, choice: choice, contents: contents);
+    return GeneralName(isConstructed: isConstructed, choice: choice, contents: contents);
   }
 
   @override
